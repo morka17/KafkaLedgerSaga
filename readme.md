@@ -113,8 +113,8 @@ No service ever assumes the transaction succeeded just because its own step did.
 ## 🚀 Quickstart
 
 ```bash
-git clone https://github.com/<your-org>/saganova.git
-cd saganova
+git clone https://github.com/morka17/KafkaLedgerSaga.git
+cd KafkaLedgerSaga
 npm install
 
 # Spin up Kafka, Postgres, Schema Registry, Jaeger, and all six services
