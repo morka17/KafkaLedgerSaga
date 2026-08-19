@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+      "outDir": "../../dist/libs/observability",
+      "declaration": true,
+      "rootDir": "src"
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["**/*.spec.ts"]
+  }
+  
