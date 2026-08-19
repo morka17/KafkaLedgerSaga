@@ -3,7 +3,7 @@
  * This is what makes distributed tracing, idempotency, and schema evolution
  * possible across service boundaries.
  */
-import { randomUUID } from 'crypto;
+import { randomUUID } from 'crypto'
 
 export const EVENT_ENVELOPE_VERSION = 1;
 
