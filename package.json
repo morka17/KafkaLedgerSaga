@@ -1,0 +1,32 @@
+{
+  "name": "kafkaledgersaga",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/morka17/KafkaLedgerSaga.git"
+  },
+  "keywords": [],
+  "author": "Morka Joshua",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/morka17/KafkaLedgerSaga/issues"
+  },
+  "homepage": "https://github.com/morka17/KafkaLedgerSaga#readme",
+  "dependencies": {
+    "@nestjs/common": "^11.2.1",
+    "@nestjs/typeorm": "^11.0.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "express": "^5.2.1",
+    "kafkajs": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
+  }
+}
