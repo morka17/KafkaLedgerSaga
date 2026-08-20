@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, Index, PrimaryColumn } from 'typeorm';
 
 /**
  * Base outbox table columns. Each service extends this in its own
