@@ -1,0 +1,40 @@
+# Optional GraphQL gateway layer, kept out of AppModule by default.
+#
+# api-gateway is REST-first (see orders/orders.controller.ts). This schema
+# is a starting point for teams that want to stand up a GraphQL facade
+# over the same OrdersService - wire it in via @nestjs/graphql's
+# GraphQLModule.forRoot() with `autoSchemaFile` pointed at this file, and
+# add resolvers that delegate to the existing OrdersService rather than
+# duplicating the Kafka-publish logic.
+
+type OrderItem {
+  sku: String!
+  qty: Int!
+  unitPriceCents: Int!
+}
+
+type OrderStatus {
+  orderId: ID!
+  sagaStatus: String!
+  currentStep: String!
+}
+
+type CreateOrderResult {
+  orderId: ID!
+  correlationId: ID!
+  status: String!
+}
+
+input OrderItemInput {
+  sku: String!
+  qty: Int!
+  unitPriceCents: Int!
+}
+
+type Query {
+  orderStatus(orderId: ID!): OrderStatus
+}
+
+type Mutation {
+  createOrder(items: [OrderItemInput!]!): CreateOrderResult!
+}
