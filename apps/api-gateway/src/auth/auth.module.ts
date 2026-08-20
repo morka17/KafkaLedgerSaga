@@ -9,7 +9,7 @@ import { DevTokenController } from './dev-token.controller';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '1h' },
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN as unknown as number ?? '1h' },
     }),
   ],
   // Only registered when NODE_ENV !== 'production' - see DevTokenController's
