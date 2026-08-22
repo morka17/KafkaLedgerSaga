@@ -5,6 +5,8 @@ export interface PostgresModuleOptions {
   /** Each service connects to its OWN schema/database - never a shared one. */
   schema: string;
   entities: unknown[];
+  /** Set DB_SYNC=true locally to auto-create tables; never enable in production. */
+  synchronize?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ export class PostgresModule {
           database: process.env.DB_NAME ?? 'saganova',
           schema: options.schema,
           entities: options.entities as never[],
-          synchronize: false, // migrations only - never auto-sync in any environment
+          synchronize: options.synchronize ?? false,
           logging: process.env.DB_LOGGING === 'true',
           maxQueryExecutionTime: 200, // logs slow queries
           extra: {

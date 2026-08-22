@@ -6,3 +6,4 @@ export * from './events/inventory.events';
 
 export * from './commands/reserve-stock.command';
 export * from './commands/authorize-payment.command';
+export * from './commands/create-order.command';

@@ -3,5 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["libs/**/*.ts"]
+  "include": ["libs/**/*.ts", "apps/**/*.ts"]
 }

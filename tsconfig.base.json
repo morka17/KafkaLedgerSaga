@@ -15,6 +15,22 @@
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "paths": {
+      "@saganova/common": ["./libs/common/src/index.ts"],
+      "@saganova/common/*": ["./libs/common/src/*"],
+      "@saganova/database": ["./libs/database/src/index.ts"],
+      "@saganova/database/*": ["./libs/database/src/*"],
+      "@saganova/event-contracts": ["./libs/event-contracts/src/index.ts"],
+      "@saganova/event-contracts/*": ["./libs/event-contracts/src/*"],
+      "@saganova/event-sourcing-core": ["./libs/event-sourcing-core/src/index.ts"],
+      "@saganova/event-sourcing-core/*": ["./libs/event-sourcing-core/src/*"],
+      "@saganova/kafka-client": ["./libs/kafka-client/src/index.ts"],
+      "@saganova/kafka-client/*": ["./libs/kafka-client/src/*"],
+      "@saganova/observability": ["./libs/observability/src/index.ts"],
+      "@saganova/observability/*": ["./libs/observability/src/*"],
+      "@saganova/saga-toolkit": ["./libs/saga-toolkit/src/index.ts"],
+      "@saganova/saga-toolkit/*": ["./libs/saga-toolkit/src/*"]
+    }
   }
 }
