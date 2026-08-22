@@ -1,107 +1,125 @@
 import { AggregateRoot } from '@saganova/event-sourcing-core';
 import {
+  PaymentEventType,
   PaymentAuthorizedPayload,
   PaymentDeclinedPayload,
-  PaymentEventType,
   PaymentRefundedPayload,
 } from '@saganova/event-contracts';
+import { PaymentStatus } from './payment-state';
 
-type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'DECLINED' | 'REFUNDED';
-
-interface PaymentState {
-  orderId?: string;
+export interface PaymentState {
+  status: PaymentStatus;
+  orderId: string;
   customerId?: string;
   amountCents: number;
-  status: PaymentStatus;
   pspReference?: string;
   declineCode?: string;
   reason?: string;
 }
 
-const initialState = (): PaymentState => ({
+const BLANK_STATE: PaymentState = {
+  status: PaymentStatus.UNINITIALIZED,
+  orderId: '',
   amountCents: 0,
-  status: 'PENDING',
-});
+};
+
+/**
+ * Thrown when a command targets a payment that's already terminal
+ * (AUTHORIZED payments can only move to REFUNDED; DECLINED and REFUNDED
+ * are dead ends). Handlers treat this as an idempotent no-op on
+ * redelivery, never as a failure to retry.
+ */
+export class PaymentAlreadyFinalizedError extends Error {
+  constructor(paymentId: string, currentStatus: PaymentStatus) {
+    super(`Payment ${paymentId} is already ${currentStatus} - refusing to transition again.`);
+    this.name = 'PaymentAlreadyFinalizedError';
+  }
+}
 
 export class PaymentAggregate extends AggregateRoot<PaymentState> {
-  private constructor(id: string, state: PaymentState = initialState()) {
+  private constructor(id: string, state: PaymentState) {
     super(id, state);
   }
 
-  static empty(paymentId: string): PaymentAggregate {
-    return new PaymentAggregate(paymentId);
+  /** paymentId is minted by the handler BEFORE calling Stripe, so both a
+   *  success and a decline can be recorded against the same identity. */
+  static authorize(
+    paymentId: string,
+    orderId: string,
+    customerId: string,
+    amountCents: number,
+    pspReference: string,
+  ): PaymentAggregate {
+    const aggregate = new PaymentAggregate(paymentId, { ...BLANK_STATE });
+    const payload: PaymentAuthorizedPayload = { paymentId, orderId, amountCents, pspReference };
+    aggregate.apply(PaymentEventType.PAYMENT_AUTHORIZED, payload);
+    return aggregate;
   }
 
-  authorize(payload: PaymentAuthorizedPayload): void {
-    if (this.state.status === 'AUTHORIZED') {
-      return;
-    }
-    if (this.state.status === 'REFUNDED') {
-      throw new Error(`Payment ${this.aggregateId} has already been refunded`);
-    }
-    this.apply(PaymentEventType.PAYMENT_AUTHORIZED, payload);
+  static decline(paymentId: string, orderId: string, declineCode: string, reason: string): PaymentAggregate {
+    const aggregate = new PaymentAggregate(paymentId, { ...BLANK_STATE });
+    const payload: PaymentDeclinedPayload = { paymentId, orderId, declineCode, reason };
+    aggregate.apply(PaymentEventType.PAYMENT_DECLINED, payload);
+    return aggregate;
   }
 
-  decline(payload: PaymentDeclinedPayload): void {
-    if (this.state.status === 'DECLINED') {
-      return;
-    }
-    if (this.state.status === 'AUTHORIZED') {
-      throw new Error(`Payment ${this.aggregateId} has already been authorized`);
-    }
-    this.apply(PaymentEventType.PAYMENT_DECLINED, payload);
+  static blank(paymentId: string): PaymentAggregate {
+    return new PaymentAggregate(paymentId, { ...BLANK_STATE });
   }
 
-  refund(payload: PaymentRefundedPayload): void {
-    if (this.state.status === 'REFUNDED') {
-      return;
+  /** Compensating transaction - called by the saga orchestrator's RefundPayment command. */
+  refund(reason?: string): void {
+    if (this.state.status !== PaymentStatus.AUTHORIZED) {
+      throw new PaymentAlreadyFinalizedError(this.aggregateId, this.state.status);
     }
+    const payload: PaymentRefundedPayload = {
+      paymentId: this.aggregateId,
+      orderId: this.state.orderId,
+      amountCents: this.state.amountCents,
+      reason,
+    };
     this.apply(PaymentEventType.PAYMENT_REFUNDED, payload);
   }
 
-  snapshot() {
-    return {
-      paymentId: this.aggregateId,
-      orderId: this.state.orderId ?? null,
-      customerId: this.state.customerId ?? null,
-      amountCents: this.state.amountCents,
-      status: this.state.status,
-      pspReference: this.state.pspReference ?? null,
-      declineCode: this.state.declineCode ?? null,
-      reason: this.state.reason ?? null,
-    };
+  get status(): PaymentStatus {
+    return this.state.status;
+  }
+
+  get snapshot(): Readonly<PaymentState> {
+    return this.state;
   }
 
   protected when(eventType: string, payload: unknown): void {
     switch (eventType) {
       case PaymentEventType.PAYMENT_AUTHORIZED: {
-        const event = payload as PaymentAuthorizedPayload;
-        this.state.orderId = event.orderId;
-        this.state.amountCents = event.amountCents;
-        this.state.pspReference = event.pspReference;
-        this.state.status = 'AUTHORIZED';
-        this.state.declineCode = undefined;
-        this.state.reason = undefined;
+        const p = payload as PaymentAuthorizedPayload;
+        this.state = {
+          ...this.state,
+          status: PaymentStatus.AUTHORIZED,
+          orderId: p.orderId,
+          amountCents: p.amountCents,
+          pspReference: p.pspReference,
+        };
         return;
       }
       case PaymentEventType.PAYMENT_DECLINED: {
-        const event = payload as PaymentDeclinedPayload;
-        this.state.orderId = event.orderId;
-        this.state.declineCode = event.declineCode;
-        this.state.reason = event.reason;
-        this.state.status = 'DECLINED';
+        const p = payload as PaymentDeclinedPayload;
+        this.state = {
+          ...this.state,
+          status: PaymentStatus.DECLINED,
+          orderId: p.orderId,
+          declineCode: p.declineCode,
+          reason: p.reason,
+        };
         return;
       }
       case PaymentEventType.PAYMENT_REFUNDED: {
-        const event = payload as PaymentRefundedPayload;
-        this.state.orderId = event.orderId;
-        this.state.amountCents = event.amountCents;
-        this.state.reason = event.reason;
-        this.state.status = 'REFUNDED';
+        const p = payload as PaymentRefundedPayload;
+        this.state = { ...this.state, status: PaymentStatus.REFUNDED, reason: p.reason ?? this.state.reason };
         return;
       }
       default:
-        return;
+        throw new Error(`PaymentAggregate cannot apply unknown event type "${eventType}"`);
     }
   }
 }

@@ -1,131 +1,81 @@
 import { Injectable, Logger } from '@nestjs/common';
+import Stripe from 'stripe';
+import { AuthorizeParams, AuthorizeResult, PaymentGateway, RefundResult } from './payment-gateway.interface';
 
-export interface StripeAuthorizationInput {
-  orderId: string;
-  customerId: string;
-  amountCents: number;
-  correlationId: string;
-}
-
-export interface StripeAuthorizationResult {
-  approved: boolean;
-  paymentId: string;
-  pspReference: string;
-  declineCode?: string;
-  reason?: string;
-}
-
-export interface StripeRefundInput {
-  paymentId: string;
-  amountCents: number;
-  correlationId: string;
-}
-
+/**
+ * Real Stripe integration. Distinguishes CARD errors (a genuine business
+ * decline - the customer's card was rejected) from everything else
+ * (network failures, auth errors, rate limits), because those two cases
+ * need opposite handling: a decline becomes a PaymentDeclined domain
+ * event and the saga compensates; an infra error should propagate,
+ * fail the Kafka message, and let redelivery retry the call -
+ * mislabeling one as the other either hides a real outage as a business
+ * failure, or permanently declines a payment that never actually ran.
+ */
 @Injectable()
-export class StripeAdapter {
+export class StripeAdapter implements PaymentGateway {
   private readonly logger = new Logger(StripeAdapter.name);
+  private readonly stripe: Stripe;
 
-  async authorize(input: StripeAuthorizationInput): Promise<StripeAuthorizationResult> {
-    if (process.env.STRIPE_MOCK_MODE !== 'false') {
-      const shouldDecline =
-        process.env.STRIPE_SIMULATE_DECLINE === 'true' ||
-        Number(process.env.STRIPE_DECLINE_AT_OR_ABOVE_CENTS ?? Number.MAX_SAFE_INTEGER) <= input.amountCents;
-
-      return {
-        approved: !shouldDecline,
-        paymentId: `pay_${input.orderId}`,
-        pspReference: `pi_mock_${input.orderId}`,
-        declineCode: shouldDecline ? 'card_declined' : undefined,
-        reason: shouldDecline ? 'Mock Stripe adapter declined the authorization' : undefined,
-      };
+  constructor() {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY must be set to use StripeAdapter (use MockStripeAdapter for local dev).');
     }
-
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    const paymentMethod = process.env.STRIPE_DEFAULT_PAYMENT_METHOD;
-    if (!secretKey || !paymentMethod) {
-      throw new Error(
-        'Stripe live mode requires STRIPE_SECRET_KEY and STRIPE_DEFAULT_PAYMENT_METHOD to be configured',
-      );
-    }
-
-    const params = new URLSearchParams({
-      amount: input.amountCents.toString(),
-      currency: process.env.STRIPE_CURRENCY ?? 'usd',
-      confirm: 'true',
-      capture_method: 'manual',
-      payment_method: paymentMethod,
-      description: `Order ${input.orderId}`,
-      'metadata[orderId]': input.orderId,
-      'metadata[customerId]': input.customerId,
-      'metadata[correlationId]': input.correlationId,
-    });
-
-    const response = await fetch('https://api.stripe.com/v1/payment_intents', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    });
-
-    const body = (await response.json()) as Record<string, unknown>;
-    if (!response.ok) {
-      this.logger.error(`Stripe authorization failed: ${JSON.stringify(body)}`);
-      return {
-        approved: false,
-        paymentId: `pay_${input.orderId}`,
-        pspReference: String(body.id ?? `pi_failed_${input.orderId}`),
-        declineCode: String(body.code ?? 'stripe_error'),
-        reason: String(body.message ?? 'Stripe returned a non-success status'),
-      };
-    }
-
-    return {
-      approved: String(body.status) === 'requires_capture' || String(body.status) === 'succeeded',
-      paymentId: `pay_${input.orderId}`,
-      pspReference: String(body.id),
-      declineCode:
-        String(body.status) === 'requires_payment_method' ? 'requires_payment_method' : undefined,
-      reason:
-        String(body.status) === 'requires_payment_method'
-          ? 'Stripe requires a valid payment method for authorization'
-          : undefined,
-    };
+    this.stripe = new Stripe(key, { apiVersion: '2024-04-10' });
   }
 
-  async refund(input: StripeRefundInput): Promise<{ pspReference: string }> {
-    if (process.env.STRIPE_MOCK_MODE !== 'false') {
-      return { pspReference: `re_mock_${input.paymentId}` };
-    }
+  async authorize(params: AuthorizeParams): Promise<AuthorizeResult> {
+    try {
+      const intent = await this.stripe.paymentIntents.create(
+        {
+          amount: params.amountCents,
+          currency: 'usd',
+          confirm: true,
+          // Demo default payment method. In a real checkout, the client
+          // tokenizes the card via Stripe Elements/Payment Element and
+          // the resulting payment_method id is threaded through the
+          // CreateOrder -> AuthorizePayment command chain instead.
+          payment_method: 'pm_card_visa',
+          off_session: true,
+          metadata: { orderId: params.orderId, customerId: params.customerId },
+        },
+        { idempotencyKey: params.idempotencyKey },
+      );
 
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    if (!secretKey) {
-      throw new Error('Stripe live mode requires STRIPE_SECRET_KEY to be configured');
-    }
+      if (intent.status === 'succeeded' || intent.status === 'requires_capture') {
+        return { success: true, pspReference: intent.id };
+      }
 
-    const params = new URLSearchParams({
-      payment_intent: input.paymentId,
-      amount: input.amountCents.toString(),
+      // Reached a non-error terminal status that still isn't a success
+      // (e.g. requires_action for 3DS) - treat as a decline rather than
+      // silently leaving the payment in limbo.
+      return { success: false, reason: `PaymentIntent ended in unhandled status: ${intent.status}` };
+    } catch (err) {
+      if (err instanceof Stripe.errors.StripeCardError) {
+        this.logger.log(`Card declined for order ${params.orderId}: ${err.decline_code ?? err.code}`);
+        return {
+          success: false,
+          declineCode: err.decline_code ?? err.code ?? 'card_error',
+          reason: err.message,
+        };
+      }
+
+      // StripeConnectionError, StripeAuthenticationError, StripeRateLimitError,
+      // StripeAPIError, etc - all infrastructure problems. Rethrow so the
+      // Kafka consumer does NOT commit the offset and this gets retried.
+      this.logger.error(`Stripe infra error authorizing order ${params.orderId}: ${(err as Error).message}`);
+      throw err;
+    }
+  }
+
+  async refund(pspReference: string, amountCents: number, reason?: string): Promise<RefundResult> {
+    const refund = await this.stripe.refunds.create({
+      payment_intent: pspReference,
+      amount: amountCents,
       reason: 'requested_by_customer',
-      'metadata[correlationId]': input.correlationId,
+      metadata: reason ? { reason } : undefined,
     });
-
-    const response = await fetch('https://api.stripe.com/v1/refunds', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    });
-
-    const body = (await response.json()) as Record<string, unknown>;
-    if (!response.ok) {
-      this.logger.error(`Stripe refund failed: ${JSON.stringify(body)}`);
-      throw new Error(String(body.message ?? 'Stripe refund failed'));
-    }
-
-    return { pspReference: String(body.id) };
+    return { refundId: refund.id };
   }
 }

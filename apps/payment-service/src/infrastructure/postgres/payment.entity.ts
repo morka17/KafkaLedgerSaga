@@ -1,33 +1,32 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { PaymentStatus } from '../../domain/payment-state';
 
-@Entity('payments')
-export class PaymentEntity {
+@Entity({ schema: 'payment_service', name: 'payment_projection' })
+export class PaymentProjectionEntity {
   @PrimaryColumn('uuid')
-  id!: string;
+  paymentId!: string;
 
   @Column('uuid')
+  @Index()
   orderId!: string;
 
-  @Column('uuid', { nullable: true })
-  customerId!: string | null;
+  @Column({ type: 'enum', enum: PaymentStatus })
+  status!: PaymentStatus;
 
-  @Column({ type: 'int' })
+  @Column()
   amountCents!: number;
 
-  @Column({ type: 'varchar', length: 32 })
-  status!: string;
+  @Column({ nullable: true })
+  pspReference?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  pspReference!: string | null;
+  @Column({ nullable: true })
+  declineCode?: string;
 
-  @Column({ type: 'varchar', length: 64, nullable: true })
-  declineCode!: string | null;
+  @Column({ nullable: true })
+  reason?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  reason!: string | null;
-
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt!: Date;
+  @Column()
+  version!: number;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
