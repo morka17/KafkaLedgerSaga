@@ -1,101 +1,118 @@
 import { AggregateRoot } from '@saganova/event-sourcing-core';
 import {
-  OrderCancelledPayload,
-  OrderConfirmedPayload,
-  OrderCreatedPayload,
   OrderEventType,
+  OrderCreatedPayload,
+  OrderConfirmedPayload,
+  OrderCancelledPayload,
+  OrderLineItem,
 } from '@saganova/event-contracts';
-import { OrderState } from './order-state';
+import { OrderStatus } from './order-state';
 
-interface OrderAggregateState {
-  customerId?: string;
-  items: OrderCreatedPayload['items'];
+export interface OrderState {
+  status: OrderStatus;
+  customerId: string;
+  items: OrderLineItem[];
   totalCents: number;
-  status: OrderState;
   paymentId?: string;
-  reason?: string;
+  cancelReason?: string;
 }
 
-const initialState = (): OrderAggregateState => ({
+const BLANK_STATE: OrderState = {
+  status: OrderStatus.UNINITIALIZED,
+  customerId: '',
   items: [],
   totalCents: 0,
-  status: OrderState.CREATED,
-});
+};
 
-export class OrderAggregate extends AggregateRoot<OrderAggregateState> {
-  private constructor(id: string, state: OrderAggregateState = initialState()) {
+/**
+ * Thrown when a command targets an order that's already in a terminal
+ * state. Command handlers treat this as an IDEMPOTENT NO-OP, not a
+ * failure - Kafka's at-least-once delivery means ConfirmOrder/CancelOrder
+ * can legitimately arrive twice for the same order.
+ */
+export class OrderAlreadyFinalizedError extends Error {
+  constructor(orderId: string, currentStatus: OrderStatus) {
+    super(`Order ${orderId} is already ${currentStatus} - refusing to transition again.`);
+    this.name = 'OrderAlreadyFinalizedError';
+  }
+}
+
+export class OrderNotFoundError extends Error {
+  constructor(orderId: string) {
+    super(`No order found with id ${orderId}`);
+    this.name = 'OrderNotFoundError';
+  }
+}
+
+export class OrderAggregate extends AggregateRoot<OrderState> {
+  private constructor(id: string, state: OrderState) {
     super(id, state);
   }
 
-  static create(orderId: string, payload: OrderCreatedPayload): OrderAggregate {
-    const aggregate = new OrderAggregate(orderId);
+  /** Creates a brand-new order and immediately applies ORDER_CREATED. */
+  static createNew(orderId: string, customerId: string, items: OrderLineItem[]): OrderAggregate {
+    const totalCents = items.reduce((sum, i) => sum + i.qty * i.unitPriceCents, 0);
+    const aggregate = new OrderAggregate(orderId, { ...BLANK_STATE });
+
+    const payload: OrderCreatedPayload = { orderId, customerId, items, totalCents };
     aggregate.apply(OrderEventType.ORDER_CREATED, payload);
+
     return aggregate;
   }
 
-  static empty(orderId: string): OrderAggregate {
-    return new OrderAggregate(orderId);
+  /** Used by the repository to rebuild an aggregate from its stored event stream. */
+  static blank(orderId: string): OrderAggregate {
+    return new OrderAggregate(orderId, { ...BLANK_STATE });
   }
 
-  confirm(payload: OrderConfirmedPayload): void {
-    if (this.state.status === OrderState.CANCELLED) {
-      throw new Error(`Order ${this.aggregateId} is already cancelled`);
+  confirm(paymentId: string): void {
+    if (this.state.status !== OrderStatus.CREATED) {
+      throw new OrderAlreadyFinalizedError(this.aggregateId, this.state.status);
     }
-    if (this.state.status === OrderState.CONFIRMED) {
-      return;
-    }
-
+    const payload: OrderConfirmedPayload = { orderId: this.aggregateId, paymentId };
     this.apply(OrderEventType.ORDER_CONFIRMED, payload);
   }
 
-  cancel(payload: OrderCancelledPayload): void {
-    if (this.state.status === OrderState.CONFIRMED) {
-      throw new Error(`Order ${this.aggregateId} is already confirmed`);
+  cancel(reason: string): void {
+    if (this.state.status === OrderStatus.CANCELLED || this.state.status === OrderStatus.CONFIRMED) {
+      throw new OrderAlreadyFinalizedError(this.aggregateId, this.state.status);
     }
-    if (this.state.status === OrderState.CANCELLED) {
-      return;
-    }
-
+    const payload: OrderCancelledPayload = { orderId: this.aggregateId, reason };
     this.apply(OrderEventType.ORDER_CANCELLED, payload);
   }
 
-  snapshot() {
-    return {
-      orderId: this.aggregateId,
-      customerId: this.state.customerId ?? null,
-      items: this.state.items,
-      totalCents: this.state.totalCents,
-      status: this.state.status,
-      paymentId: this.state.paymentId ?? null,
-      reason: this.state.reason ?? null,
-    };
+  get status(): OrderStatus {
+    return this.state.status;
+  }
+
+  get snapshot(): Readonly<OrderState> {
+    return this.state;
   }
 
   protected when(eventType: string, payload: unknown): void {
     switch (eventType) {
       case OrderEventType.ORDER_CREATED: {
-        const event = payload as OrderCreatedPayload;
-        this.state.customerId = event.customerId;
-        this.state.items = event.items;
-        this.state.totalCents = event.totalCents;
-        this.state.status = OrderState.PENDING_PAYMENT;
+        const p = payload as OrderCreatedPayload;
+        this.state = {
+          status: OrderStatus.CREATED,
+          customerId: p.customerId,
+          items: p.items,
+          totalCents: p.totalCents,
+        };
         return;
       }
       case OrderEventType.ORDER_CONFIRMED: {
-        const event = payload as OrderConfirmedPayload;
-        this.state.paymentId = event.paymentId;
-        this.state.status = OrderState.CONFIRMED;
-        this.state.reason = undefined;
+        const p = payload as OrderConfirmedPayload;
+        this.state = { ...this.state, status: OrderStatus.CONFIRMED, paymentId: p.paymentId };
         return;
       }
       case OrderEventType.ORDER_CANCELLED: {
-        const event = payload as OrderCancelledPayload;
-        this.state.reason = event.reason;
-        this.state.status = OrderState.CANCELLED;
+        const p = payload as OrderCancelledPayload;
+        this.state = { ...this.state, status: OrderStatus.CANCELLED, cancelReason: p.reason };
         return;
       }
       default:
-        return;
+        throw new Error(`OrderAggregate cannot apply unknown event type "${eventType}"`);
     }
   }
 }

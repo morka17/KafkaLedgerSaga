@@ -1,6 +1,7 @@
-export enum OrderState {
+export enum OrderStatus {
+  /** Aggregate exists but hasn't yet had ORDER_CREATED applied - never observable outside the aggregate. */
+  UNINITIALIZED = 'UNINITIALIZED',
   CREATED = 'CREATED',
-  PENDING_PAYMENT = 'PENDING_PAYMENT',
   CONFIRMED = 'CONFIRMED',
   CANCELLED = 'CANCELLED',
 }

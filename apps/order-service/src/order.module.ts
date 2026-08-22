@@ -1,38 +1,55 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  EventStoreRow,
-  IdempotencyService,
-  OutboxRelayScheduler,
-  PostgresModule,
-  ProcessedMessageRow,
-} from '@saganova/database';
-import { CorrelationIdInterceptor, LoggingInterceptor } from '@saganova/common';
 import { KafkaModule, loadKafkaOptionsFromEnv } from '@saganova/kafka-client';
-import { OrderApplicationService } from './application/order-application.service';
-import { OrderConsumerController } from './infrastructure/kafka/order-consumer.controller';
-import { OrderEntity } from './infrastructure/postgres/order.entity';
-import { OrderOutboxRow } from './infrastructure/outbox/order-outbox.entity';
-import { OrdersController } from './interfaces/http/orders.controller';
+import { PostgresModule } from '@saganova/database';
+import { PrometheusModule } from '@saganova/observability';
+
+import { OrderEventStoreEntity } from './infrastructure/event-store/event-store.entity';
+import { OrderProjectionEntity } from './infrastructure/postgres/order.entity';
+import { OrderOutboxEntity } from './infrastructure/outbox/outbox.entity';
+
+import { OrderEventStoreRepository } from './infrastructure/event-store/event-store.repository';
+import { OrderProjectionRepository } from './infrastructure/postgres/order.repository';
+import { OrderOutboxRepository } from './infrastructure/outbox/outbox.repository';
+import { OrderOutboxRelayService } from './infrastructure/outbox/outbox-relay.service';
+import { OrderKafkaConsumer } from './infrastructure/kafka/order-consumer.controller';
+import { OrderKafkaProducer } from './infrastructure/kafka/order-producer.service';
+
+import { CreateOrderHandler } from './application/commands/handlers/create-order.handler';
+import { ConfirmOrderHandler } from './application/commands/handlers/confirm-order.handler';
+import { CancelOrderHandler } from './application/commands/handlers/cancel-order.handler';
+import { GetOrderByIdHandler } from './application/queries/get-order-by-id.handler';
+import { OrderSaga } from './application/sagas/order.saga';
+
+import { OrdersHttpController } from './interfaces/http/orders.controller';
+import { HealthController } from './interfaces/http/health.controller';
+
+const COMMAND_HANDLERS = [CreateOrderHandler, ConfirmOrderHandler, CancelOrderHandler];
+const QUERY_HANDLERS = [GetOrderByIdHandler];
 
 @Module({
   imports: [
-    KafkaModule.register(loadKafkaOptionsFromEnv('order-service')),
+    CqrsModule,
     PostgresModule.forService({
       schema: 'order_service',
-      entities: [OrderEntity, OrderOutboxRow, EventStoreRow, ProcessedMessageRow],
-      synchronize: process.env.DB_SYNC === 'true',
+      entities: [OrderEventStoreEntity, OrderProjectionEntity, OrderOutboxEntity],
     }),
-    TypeOrmModule.forFeature([OrderEntity, OrderOutboxRow, EventStoreRow, ProcessedMessageRow]),
+    TypeOrmModule.forFeature([OrderEventStoreEntity, OrderProjectionEntity, OrderOutboxEntity]),
+    KafkaModule.register(loadKafkaOptionsFromEnv('order-service')),
+    PrometheusModule,
   ],
-  controllers: [OrderConsumerController, OrdersController],
+  controllers: [OrdersHttpController, HealthController],
   providers: [
-    OrderApplicationService,
-    IdempotencyService,
-    OutboxRelayScheduler,
-    { provide: APP_INTERCEPTOR, useClass: CorrelationIdInterceptor },
-    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    OrderEventStoreRepository,
+    OrderProjectionRepository,
+    OrderOutboxRepository,
+    OrderOutboxRelayService,
+    OrderKafkaConsumer,
+    OrderKafkaProducer,
+    OrderSaga,
+    ...COMMAND_HANDLERS,
+    ...QUERY_HANDLERS,
   ],
 })
 export class OrderModule {}

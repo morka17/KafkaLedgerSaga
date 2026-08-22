@@ -1,32 +1,37 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
-import { OrderLineItem } from '@saganova/event-contracts';
-import { OrderState } from '../../domain/order-state';
+import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { OrderStatus } from '../../domain/order-state';
 
-@Entity('orders')
-export class OrderEntity {
+/**
+ * Read-model / query projection - NOT the source of truth (event_store
+ * is). Updated inside the same transaction as the event append, so it's
+ * always consistent with the event stream; kept separate so queries
+ * never have to replay events.
+ */
+@Entity({ schema: 'order_service', name: 'order_projection' })
+export class OrderProjectionEntity {
   @PrimaryColumn('uuid')
-  id!: string;
+  orderId!: string;
 
-  @Column('uuid')
+  @Column()
   customerId!: string;
 
-  @Column({ type: 'varchar', length: 32 })
-  status!: OrderState;
-
-  @Column({ type: 'int' })
-  totalCents!: number;
+  @Column({ type: 'enum', enum: OrderStatus })
+  status!: OrderStatus;
 
   @Column({ type: 'jsonb' })
-  items!: OrderLineItem[];
+  items!: unknown;
 
-  @Column({ type: 'uuid', nullable: true })
-  paymentId!: string | null;
+  @Column()
+  totalCents!: number;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  reason!: string | null;
+  @Column({ nullable: true })
+  paymentId?: string;
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt!: Date;
+  @Column({ nullable: true })
+  cancelReason?: string;
+
+  @Column()
+  version!: number;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
