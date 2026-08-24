@@ -43,6 +43,8 @@ export class OrderKafkaConsumer implements OnModuleInit, OnModuleDestroy {
       ssl: opts.ssl,
       sasl: opts.sasl,
     });
+    // TODO: find out why this statement wasnot included
+    // this.commandBus = commandBus;
   }
 
   async onModuleInit() {
