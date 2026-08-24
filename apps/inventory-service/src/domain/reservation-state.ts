@@ -1,0 +1,6 @@
+export enum ReservationStatus {
+  UNINITIALIZED = 'UNINITIALIZED',
+  RESERVED = 'RESERVED',
+  FAILED = 'FAILED',
+  RELEASED = 'RELEASED',
+}
