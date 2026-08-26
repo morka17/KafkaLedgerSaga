@@ -90,23 +90,23 @@ export class NotificationKafkaConsumer implements OnModuleInit, OnModuleDestroy 
     switch (envelope.type) {
       case OrderEventType.ORDER_CONFIRMED: {
         const payload = envelope.payload as unknown as OrderConfirmedPayload;
-        const contact = await this.contactResolver.resolve(payload.customerId);
+        const contact = await this.contactResolver.resolve(payload.customerId!);
         await this.emailProvider.send({ to: contact.email, ...orderConfirmedEmail(payload) });
         return;
       }
       case OrderEventType.ORDER_CANCELLED: {
         const payload = envelope.payload as unknown as OrderCancelledPayload;
-        const contact = await this.contactResolver.resolve(payload.customerId);
+        const contact = await this.contactResolver.resolve(payload.customerId!);
         await this.emailProvider.send({ to: contact.email, ...orderCancelledEmail(payload) });
         return;
       }
       case PaymentEventType.PAYMENT_DECLINED: {
         const payload = envelope.payload as unknown as PaymentDeclinedPayload;
-        const contact = await this.contactResolver.resolve(payload.customerId);
+        const contact = await this.contactResolver.resolve(payload.customerId!);
         // Payment declines get both channels - a declined card is
         // urgent enough to warrant an SMS in addition to email, unlike
         // a routine confirmation or cancellation.
-        const email = orderCancelledEmail({ orderId: payload.orderId, customerId: payload.customerId, reason: payload.reason });
+        const email = orderCancelledEmail({ orderId: payload.orderId, customerId: payload.customerId!, reason: payload.reason });
         await this.emailProvider.send({ to: contact.email, subject: `Payment issue with order ${payload.orderId}`, body: email.body });
         if (contact.phone) {
           await this.smsProvider.send({ to: contact.phone, ...paymentDeclinedSms(payload) });
