@@ -22,7 +22,7 @@ export class StripeAdapter implements PaymentGateway {
     if (!key) {
       throw new Error('STRIPE_SECRET_KEY must be set to use StripeAdapter (use MockStripeAdapter for local dev).');
     }
-    this.stripe = new Stripe(key, { apiVersion: '2024-04-10' });
+    this.stripe = new Stripe(key, { apiVersion: '2026-07-29.dahlia' });
   }
 
   async authorize(params: AuthorizeParams): Promise<AuthorizeResult> {
