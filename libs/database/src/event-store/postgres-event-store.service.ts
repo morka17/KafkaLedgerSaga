@@ -38,7 +38,7 @@ export class PostgresEventStore implements EventStore {
         aggregateType,
         sequence,
         type: event.type,
-        payload: event.payload as Record<string, unknown>,
+        payload: event.payload as unknown as object,
         correlationId: event.correlationId,
         occurredAt: event.occurredAt,
       });
