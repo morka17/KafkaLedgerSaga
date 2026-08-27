@@ -1,0 +1,95 @@
+@startuml happy-path-checkout
+title Saganova - Happy Path Checkout (order created, confirmed, no failures)
+
+autonumber
+
+actor Customer
+participant "api-gateway" as Gateway
+participant "Kafka:\nsaga.commands" as SagaCmds
+participant "order-service" as Order
+participant "Kafka:\norder.events" as OrderEvt
+participant "saga-orchestrator" as Saga
+participant "inventory-service" as Inventory
+participant "Kafka:\ninventory.events" as InvEvt
+participant "payment-service" as Payment
+participant "Stripe" as Stripe
+participant "Kafka:\npayment.events" as PayEvt
+participant "notification-service" as Notify
+participant "audit-ledger-service" as Audit
+
+Customer -> Gateway : POST /orders\n(JWT auth, items[])
+activate Gateway
+Gateway -> Gateway : OrdersService.createOrder()\ngenerates orderId, correlationId
+Gateway -> SagaCmds : publish CreateOrder\n(order.create.v1)
+Gateway --> Customer : 202 Accepted\n{ orderId, correlationId }
+deactivate Gateway
+
+Order -> SagaCmds : consume CreateOrder
+activate Order
+Order -> Order : OrderAggregate.createNew()\n+ event_store append\n+ outbox write (1 txn)
+Order -> OrderEvt : [outbox relay] publish OrderCreated\n(order.created.v1)
+deactivate Order
+
+Audit -> OrderEvt : consume (wildcard subscription)
+Audit -> Audit : append-only insert into audit_log
+
+Saga -> OrderEvt : consume OrderCreated
+activate Saga
+Saga -> Saga : SagaStateMachine.start()\ncreate saga_instance row
+Saga -> SagaCmds : publish ReserveStock\n(inventory.reserve_stock.v1)
+deactivate Saga
+
+Inventory -> SagaCmds : consume ReserveStock
+activate Inventory
+Inventory -> Inventory : StockRepository: lock + decrement\nstock_level rows (1 txn)
+Inventory -> Inventory : StockAggregate.reserved()\n+ event_store append + outbox write (same txn)
+Inventory -> InvEvt : [outbox relay] publish InventoryReserved\n(inventory.reserved.v1)
+deactivate Inventory
+
+Audit -> InvEvt : consume (wildcard subscription)
+
+Saga -> InvEvt : consume InventoryReserved
+activate Saga
+Saga -> Saga : CompensationRegistry.onEvent()\nadvance to step 2, save context.reservationId
+Saga -> SagaCmds : publish AuthorizePayment\n(payment.authorize.v1)
+deactivate Saga
+
+Payment -> SagaCmds : consume AuthorizePayment
+activate Payment
+Payment -> Payment : idempotency check:\nno existing payment for orderId
+Payment -> Stripe : paymentIntents.create()\n(idempotencyKey = "authorize:{orderId}")
+Stripe --> Payment : PaymentIntent { status: succeeded }
+Payment -> Payment : PaymentAggregate.authorize()\n+ event_store append + outbox write (1 txn)
+Payment -> PayEvt : [outbox relay] publish PaymentAuthorized\n(payment.authorized.v1)
+deactivate Payment
+
+Audit -> PayEvt : consume (wildcard subscription)
+
+Saga -> PayEvt : consume PaymentAuthorized
+activate Saga
+Saga -> Saga : CompensationRegistry.onEvent()\nstatus -> COMPLETED, save context.paymentId
+Saga -> SagaCmds : publish ConfirmOrder\n(order.confirm.v1)
+deactivate Saga
+
+Order -> SagaCmds : consume ConfirmOrder
+activate Order
+Order -> Order : OrderAggregate.confirm(paymentId)\n+ event_store append + outbox write (1 txn)
+Order -> OrderEvt : [outbox relay] publish OrderConfirmed\n(order.confirmed.v1)
+deactivate Order
+
+Audit -> OrderEvt : consume (wildcard subscription)
+
+Notify -> OrderEvt : consume OrderConfirmed
+activate Notify
+Notify -> Notify : CustomerContactResolver.resolve(customerId)
+Notify -> Notify : EmailProvider.send()\n(SendGrid, or MockEmailProvider in dev)
+deactivate Notify
+
+Customer -> Gateway : GET /orders/{orderId}
+activate Gateway
+Gateway -> Saga : GET /sagas/{orderId}\n(internal HTTP)
+Saga --> Gateway : { sagaStatus: "COMPLETED", ... }
+Gateway --> Customer : 200 OK
+deactivate Gateway
+
+@enduml
