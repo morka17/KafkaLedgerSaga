@@ -33,22 +33,17 @@ async function main() {
   console.log(chalk.cyan('Connected to Postgres for seeding.'));
 
   try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS inventory_service.stock_level (
-        sku TEXT PRIMARY KEY,
-        description TEXT NOT NULL,
-        qty_available INTEGER NOT NULL,
-        qty_reserved INTEGER NOT NULL DEFAULT 0,
-        version INTEGER NOT NULL DEFAULT 0,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `);
-
+    // The table itself is owned by inventory-service's migration
+    // (apps/inventory-service/src/migrations) - run
+    // `npm run --workspace=@saganova/tools migrate:run-all` before
+    // seeding. This script only inserts rows, using the exact column
+    // names TypeORM's default naming strategy produces (camelCase,
+    // quoted) so it matches StockLevelEntity precisely.
     for (const item of SEED_STOCK) {
       await client.query(
-        `INSERT INTO inventory_service.stock_level (sku, description, qty_available)
+        `INSERT INTO inventory_service.stock_level (sku, description, "qtyAvailable")
          VALUES ($1, $2, $3)
-         ON CONFLICT (sku) DO UPDATE SET qty_available = EXCLUDED.qty_available, updated_at = now()`,
+         ON CONFLICT (sku) DO UPDATE SET "qtyAvailable" = EXCLUDED."qtyAvailable", "updatedAt" = now()`,
         [item.sku, item.description, item.qtyAvailable],
       );
       console.log(chalk.green(`  ✅ ${item.sku} -> ${item.qtyAvailable} units`));

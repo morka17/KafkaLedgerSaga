@@ -1,34 +1,33 @@
 {
-    "name": "@saganova/tools",
-    "version": "1.0.0",
-    "private": true,
-    "description": "Codegen scaffolders, cross-service migration runner, and local-dev orchestration scripts. Not deployed - dev/CI tooling only.",
-    "bin": {
-      "saganova-gen-event": "./codegen/generate-event.ts",
-      "saganova-gen-saga-step": "./codegen/generate-saga-step.ts"
-    },
-    "scripts": {
-      "bootstrap": "bash scripts/bootstrap.sh",
-      "clean": "bash scripts/clean.sh",
-      "kafka:create-topics": "bash scripts/create-kafka-topics.sh",
-      "seed": "ts-node -r tsconfig-paths/register scripts/seed-dev-data.ts",
-      "migrate:run-all": "ts-node -r tsconfig-paths/register migration-runner/run-all-migrations.ts",
-      "migrate:status": "ts-node -r tsconfig-paths/register migration-runner/migration-status.ts",
-      "gen:event": "ts-node codegen/generate-event.ts",
-      "gen:saga-step": "ts-node codegen/generate-saga-step.ts"
-    },
-    "dependencies": {
-      "commander": "^12.1.0",
-      "chalk": "^4.1.2",
-      "pg": "^8.11.5",
-      "dotenv": "^16.4.5"
-    },
-    "devDependencies": {
-      "ts-node": "^10.9.2",
-      "tsconfig-paths": "^4.2.0",
-      "typescript": "^5.4.5",
-      "@types/node": "^20.12.7",
-      "@types/pg": "^8.11.6"
-    }
+  "name": "@saganova/tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Codegen scaffolders, cross-service migration runner, and local-dev orchestration scripts. Not deployed - dev/CI tooling only.",
+  "bin": {
+    "saganova-gen-event": "./codegen/generate-event.ts",
+    "saganova-gen-saga-step": "./codegen/generate-saga-step.ts"
+  },
+  "scripts": {
+    "bootstrap": "bash scripts/bootstrap.sh",
+    "clean": "bash scripts/clean.sh",
+    "kafka:create-topics": "bash scripts/create-kafka-topics.sh",
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed-dev-data.ts",
+    "migrate:run-all": "ts-node -r tsconfig-paths/register migration-runner/run-all-migrations.ts",
+    "migrate:status": "ts-node -r tsconfig-paths/register migration-runner/migration-status.ts",
+    "gen:event": "ts-node codegen/generate-event.ts",
+    "gen:saga-step": "ts-node codegen/generate-saga-step.ts"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "chalk": "^4.1.2",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.7",
+    "@types/pg": "^8.11.6"
   }
-  
+}
