@@ -1,0 +1,17 @@
+{
+  "name": "@saganova/test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Consumer-driven contract tests, full-stack e2e saga tests, and k6 load tests. Not deployed - verification only.",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.12.7",
+    "typescript": "^5.4.5",
+    "class-validator": "^0.14.1",
+    "class-transformer": "^0.5.1",
+    "reflect-metadata": "^0.2.2"
+  }
+}
