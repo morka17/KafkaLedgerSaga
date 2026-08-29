@@ -1,0 +1,102 @@
+name: Docker Build & Push
+
+# Runs after CI succeeds on main, so nothing is ever pushed from a commit
+# that hasn't passed lint/test/build/e2e - the workflow_run trigger
+# below is what enforces that ordering (a plain `push:` trigger on this
+# workflow would race CI instead of depending on it).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra tag to apply to all images (e.g. a release version)"
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}/saganova
+
+jobs:
+  build-and-push:
+    name: Build & push (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false # one image's build failure shouldn't cancel the others
+      matrix:
+        include:
+          - name: api-gateway
+            dockerfile: apps/api-gateway/Dockerfile
+          - name: order-service
+            dockerfile: apps/order-service/Dockerfile
+          - name: payment-service
+            dockerfile: apps/payment-service/Dockerfile
+          - name: inventory-service
+            dockerfile: apps/inventory-service/Dockerfile
+          - name: saga-orchestrator
+            dockerfile: apps/saga-orchestrator/Dockerfile
+          - name: audit-ledger-service
+            dockerfile: apps/audit-ledger-service/Dockerfile
+          - name: notification-service
+            dockerfile: apps/notification-service/Dockerfile
+          - name: migrator
+            dockerfile: tools/Dockerfile
+            # Not a running service - see tools/Dockerfile's comment.
+            # cd-k8s.yml runs this image as a one-off Job before/after
+            # each deploy, never as a Deployment.
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run doesn't automatically check out the triggering
+          # commit - pin explicitly so the image we build matches exactly
+          # what CI just validated, not whatever HEAD happens to be.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          # Build context is the whole repo, not the service subfolder -
+          # every Dockerfile does `COPY libs ./libs` alongside its own
+          # app folder, since every service (and the migrator image)
+          # depends on the shared @saganova/* libs at build time.
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Image digest
+        run: echo "Pushed ${{ matrix.name }} @ ${{ steps.meta.outputs.tags }}"

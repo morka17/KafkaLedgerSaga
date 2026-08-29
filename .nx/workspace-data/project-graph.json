@@ -1,0 +1,256 @@
+{
+  "nodes": {
+    "@saganova/event-sourcing-core": {
+      "name": "@saganova/event-sourcing-core",
+      "type": "lib",
+      "data": {
+        "root": "libs/event-sourcing-core",
+        "sourceRoot": "libs/event-sourcing-core",
+        "name": "@saganova/event-sourcing-core",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Reusable aggregate-root base class, event-store contract, and snapshotting strategy shared by every aggregate in Saganova."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/event-contracts": {
+      "name": "@saganova/event-contracts",
+      "type": "lib",
+      "data": {
+        "root": "libs/event-contracts",
+        "sourceRoot": "libs/event-contracts",
+        "name": "@saganova/event-contracts",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Single source of truth for all Kafka event & command payload contracts used across Saganova services."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/observability": {
+      "name": "@saganova/observability",
+      "type": "lib",
+      "data": {
+        "root": "libs/observability",
+        "sourceRoot": "libs/observability",
+        "name": "@saganova/observability",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "OpenTelemetry tracing, Prometheus metrics, and structured Pino logging, wired identically into every Saganova service."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "order-service": {
+      "name": "order-service",
+      "type": "lib",
+      "data": {
+        "root": "apps/order-service",
+        "sourceRoot": "apps/order-service",
+        "name": "order-service",
+        "tags": [
+          "npm:private"
+        ],
+        "metadata": {
+          "targetGroups": {}
+        },
+        "targets": {},
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/kafka-client": {
+      "name": "@saganova/kafka-client",
+      "type": "lib",
+      "data": {
+        "root": "libs/kafka-client",
+        "sourceRoot": "libs/kafka-client",
+        "name": "@saganova/kafka-client",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Shared, idempotent Kafka producer/consumer wrapper used by every Saganova service."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/saga-toolkit": {
+      "name": "@saganova/saga-toolkit",
+      "type": "lib",
+      "data": {
+        "root": "libs/saga-toolkit",
+        "sourceRoot": "libs/saga-toolkit",
+        "name": "@saganova/saga-toolkit",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Reusable saga step definitions and a compensation registry used by the saga-orchestrator (and any service that owns its own local saga)."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/database": {
+      "name": "@saganova/database",
+      "type": "lib",
+      "data": {
+        "root": "libs/database",
+        "sourceRoot": "libs/database",
+        "name": "@saganova/database",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Per-service Postgres connection factory and the shared Transactional Outbox abstraction that eliminates the dual-write problem between Postgres and Kafka."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    },
+    "@saganova/common": {
+      "name": "@saganova/common",
+      "type": "lib",
+      "data": {
+        "root": "libs/common",
+        "sourceRoot": "libs/common",
+        "name": "@saganova/common",
+        "tags": [
+          "npm:public"
+        ],
+        "metadata": {
+          "targetGroups": {},
+          "description": "Shared Nest filters, interceptors, decorators, and pipes used across every Saganova app."
+        },
+        "targets": {
+          "nx-release-publish": {
+            "executor": "@nx/js:release-publish",
+            "dependsOn": [
+              "^nx-release-publish"
+            ],
+            "options": {},
+            "configurations": {},
+            "parallelism": true
+          }
+        },
+        "implicitDependencies": []
+      }
+    }
+  },
+  "externalNodes": {},
+  "dependencies": {
+    "@saganova/event-sourcing-core": [],
+    "@saganova/event-contracts": [],
+    "@saganova/observability": [],
+    "order-service": [
+      {
+        "source": "order-service",
+        "target": "@saganova/kafka-client",
+        "type": "static"
+      },
+      {
+        "source": "order-service",
+        "target": "@saganova/database",
+        "type": "static"
+      },
+      {
+        "source": "order-service",
+        "target": "@saganova/observability",
+        "type": "static"
+      },
+      {
+        "source": "order-service",
+        "target": "@saganova/common",
+        "type": "static"
+      }
+    ],
+    "@saganova/kafka-client": [],
+    "@saganova/saga-toolkit": [],
+    "@saganova/database": [
+      {
+        "source": "@saganova/database",
+        "target": "@saganova/kafka-client",
+        "type": "static"
+      }
+    ],
+    "@saganova/common": []
+  },
+  "version": "6.0"
+}

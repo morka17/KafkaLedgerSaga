@@ -1,0 +1,14 @@
+[NX Daemon Server] - 2026-08-18T23:55:30.114Z - Started listening on: /tmp/c8741cc89cbde7bac76c/d.sock
+[NX Daemon Server] - 2026-08-18T23:55:30.119Z - [WATCHER]: Subscribed to changes within: /home/claude/saganova (native)
+[NX Daemon Server] - 2026-08-18T23:55:30.122Z - Established a connection. Number of open connections: 1
+[NX Daemon Server] - 2026-08-18T23:55:30.127Z - Established a connection. Number of open connections: 2
+[NX Daemon Server] - 2026-08-18T23:55:30.129Z - Closed a connection. Number of open connections: 1
+[NX Daemon Server] - 2026-08-18T23:55:30.130Z - [REQUEST]: Responding to the client. Shutdown initiated
+[NX Daemon Server] - 2026-08-18T23:55:30.135Z - Done responding to the client Shutdown initiated
+[NX Daemon Server] - 2026-08-18T23:55:30.136Z - Handled FORCE_SHUTDOWN. Handling time: 0. Response time: 6.
+[NX Daemon Server] - 2026-08-18T23:55:30.143Z - Closed a connection. Number of open connections: 0
+[NX Daemon Server] - 2026-08-18T23:55:31.383Z - Time taken for 'Load Nx Plugin: /home/claude/saganova/node_modules/nx/src/plugins/package-json' 1107.182763ms
+[NX Daemon Server] - 2026-08-18T23:55:31.384Z - Time taken for 'Load Nx Plugin: /home/claude/saganova/node_modules/nx/src/plugins/project-json/build-nodes/project-json' 1116.594795ms
+[NX Daemon Server] - 2026-08-18T23:55:31.424Z - Time taken for 'Load Nx Plugin: /home/claude/saganova/node_modules/nx/src/plugins/js' 1194.315341ms
+[NX Daemon Server] - 2026-08-18T23:55:31.508Z - [WATCHER]: Stopping the watcher for /home/claude/saganova (sources)
+[NX Daemon Server] - 2026-08-18T23:55:31.515Z - [WATCHER]: Stopping the watcher for /home/claude/saganova (outputs)

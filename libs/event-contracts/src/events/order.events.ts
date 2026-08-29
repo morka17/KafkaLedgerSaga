@@ -45,6 +45,9 @@ export class OrderConfirmedPayload {
   orderId!: string;
 
   @IsUUID()
+  customerId?: string;
+
+  @IsUUID()
   paymentId!: string;
 }
 
@@ -52,6 +55,9 @@ export class OrderConfirmedPayload {
 export class OrderCancelledPayload {
   @IsUUID()
   orderId!: string;
+
+  @IsUUID()
+  customerId?: string;
 
   @IsString()
   reason!: string;

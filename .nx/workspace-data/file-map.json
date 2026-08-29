@@ -1,0 +1,333 @@
+{
+  "version": "6.0",
+  "nxVersion": "19.8.14",
+  "deps": {
+    "@nestjs/common": "^10.3.7",
+    "@nestjs/core": "^10.3.7",
+    "@nestjs/platform-express": "^10.3.7",
+    "@nestjs/microservices": "^10.3.7",
+    "@nestjs/typeorm": "^10.0.2",
+    "@nestjs/cqrs": "^10.2.7",
+    "typeorm": "^0.3.20",
+    "pg": "^8.11.5",
+    "kafkajs": "^2.2.4",
+    "class-validator": "^0.14.1",
+    "class-transformer": "^0.5.1",
+    "rxjs": "^7.8.1",
+    "reflect-metadata": "^0.2.2",
+    "@nx/js": "^19.0.0",
+    "@nx/nest": "^19.0.0",
+    "@nx/node": "^19.0.0",
+    "@nx/eslint": "^19.0.0",
+    "@nx/jest": "^19.0.0",
+    "nx": "^19.0.0",
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "jest": "^29.7.0",
+    "@types/node": "^20.12.7"
+  },
+  "pathMappings": {
+    "@saganova/event-contracts": [
+      "libs/event-contracts/src/index.ts"
+    ],
+    "@saganova/kafka-client": [
+      "libs/kafka-client/src/index.ts"
+    ],
+    "@saganova/event-sourcing-core": [
+      "libs/event-sourcing-core/src/index.ts"
+    ],
+    "@saganova/saga-toolkit": [
+      "libs/saga-toolkit/src/index.ts"
+    ],
+    "@saganova/common": [
+      "libs/common/src/index.ts"
+    ],
+    "@saganova/database": [
+      "libs/database/src/index.ts"
+    ],
+    "@saganova/observability": [
+      "libs/observability/src/index.ts"
+    ]
+  },
+  "nxJsonPlugins": [
+    {
+      "name": "@nx/nest",
+      "version": "^19.0.0",
+      "options": {}
+    }
+  ],
+  "fileMap": {
+    "projectFileMap": {
+      "@saganova/kafka-client": [
+        {
+          "file": "libs/kafka-client/package.json",
+          "hash": "11613236635411236051"
+        },
+        {
+          "file": "libs/kafka-client/src/index.ts",
+          "hash": "5021881392653465303"
+        },
+        {
+          "file": "libs/kafka-client/src/kafka-config.factory.ts",
+          "hash": "7016318609618807693"
+        },
+        {
+          "file": "libs/kafka-client/src/kafka-producer.service.ts",
+          "hash": "18414217508000888264"
+        },
+        {
+          "file": "libs/kafka-client/src/kafka.module.ts",
+          "hash": "4025510334952070481"
+        },
+        {
+          "file": "libs/kafka-client/src/serializers/json.serializer.ts",
+          "hash": "13107249671299111929"
+        },
+        {
+          "file": "libs/kafka-client/tsconfig.lib.json",
+          "hash": "8675250679381274357"
+        }
+      ],
+      "@saganova/observability": [
+        {
+          "file": "libs/observability/package.json",
+          "hash": "1750797913816957189"
+        },
+        {
+          "file": "libs/observability/src/index.ts",
+          "hash": "11548989886813834711"
+        },
+        {
+          "file": "libs/observability/src/logging/pino-logger.module.ts",
+          "hash": "1680852641191405314"
+        },
+        {
+          "file": "libs/observability/src/metrics/prometheus.module.ts",
+          "hash": "2293044582402508889"
+        },
+        {
+          "file": "libs/observability/src/tracing/otel.module.ts",
+          "hash": "5824469878670673576"
+        },
+        {
+          "file": "libs/observability/tsconfig.lib.json",
+          "hash": "14178346179339270963"
+        }
+      ],
+      "order-service": [
+        {
+          "file": "apps/order-service/package.json",
+          "hash": "17878402644626648167"
+        },
+        {
+          "file": "apps/order-service/src/app.module.ts",
+          "hash": "8425899009646054282",
+          "deps": [
+            "@saganova/kafka-client",
+            "@saganova/database"
+          ]
+        },
+        {
+          "file": "apps/order-service/src/main.ts",
+          "hash": "11894006239352131221",
+          "deps": [
+            "@saganova/observability",
+            "@saganova/common"
+          ]
+        },
+        {
+          "file": "apps/order-service/tsconfig.app.json",
+          "hash": "12463075082437484009"
+        }
+      ],
+      "@saganova/event-sourcing-core": [
+        {
+          "file": "libs/event-sourcing-core/package.json",
+          "hash": "3699125111566955910"
+        },
+        {
+          "file": "libs/event-sourcing-core/src/aggregate-root.base.ts",
+          "hash": "465651253604104691"
+        },
+        {
+          "file": "libs/event-sourcing-core/src/event-store.interface.ts",
+          "hash": "7410817586681657664"
+        },
+        {
+          "file": "libs/event-sourcing-core/src/index.ts",
+          "hash": "589983260626803704"
+        },
+        {
+          "file": "libs/event-sourcing-core/src/snapshot.strategy.ts",
+          "hash": "15602493034577705130"
+        },
+        {
+          "file": "libs/event-sourcing-core/tsconfig.lib.json",
+          "hash": "8898280184647483903"
+        }
+      ],
+      "@saganova/common": [
+        {
+          "file": "libs/common/package.json",
+          "hash": "13580552873772927046"
+        },
+        {
+          "file": "libs/common/src/decorators/current-user.decorator.ts",
+          "hash": "8716096517920867733"
+        },
+        {
+          "file": "libs/common/src/filters/all-exceptions.filter.ts",
+          "hash": "4565661742169043431"
+        },
+        {
+          "file": "libs/common/src/index.ts",
+          "hash": "9429886944812950086"
+        },
+        {
+          "file": "libs/common/src/interceptors/correlation-id.interceptor.ts",
+          "hash": "16819064817147255707"
+        },
+        {
+          "file": "libs/common/src/interceptors/logging.interceptor.ts",
+          "hash": "10191350953862065793"
+        },
+        {
+          "file": "libs/common/src/pipes/validation.pipe.ts",
+          "hash": "16038523194622324884"
+        },
+        {
+          "file": "libs/common/tsconfig.lib.json",
+          "hash": "12955785508328235502"
+        }
+      ],
+      "@saganova/database": [
+        {
+          "file": "libs/database/package.json",
+          "hash": "14515523679163486615"
+        },
+        {
+          "file": "libs/database/src/index.ts",
+          "hash": "2048493446124992840"
+        },
+        {
+          "file": "libs/database/src/outbox/outbox-relay.scheduler.ts",
+          "hash": "587037779067416428",
+          "deps": [
+            "@saganova/kafka-client"
+          ]
+        },
+        {
+          "file": "libs/database/src/outbox/outbox.abstract-repository.ts",
+          "hash": "18024952146790098032",
+          "deps": [
+            "@saganova/kafka-client"
+          ]
+        },
+        {
+          "file": "libs/database/src/outbox/outbox.entity.ts",
+          "hash": "10124185420066270221"
+        },
+        {
+          "file": "libs/database/src/postgres.module.ts",
+          "hash": "4964808717929088335"
+        },
+        {
+          "file": "libs/database/tsconfig.lib.json",
+          "hash": "3883595561111168675"
+        }
+      ],
+      "@saganova/saga-toolkit": [
+        {
+          "file": "libs/saga-toolkit/package.json",
+          "hash": "7635408753762638848"
+        },
+        {
+          "file": "libs/saga-toolkit/src/compensation-registry.ts",
+          "hash": "18380094912700838477"
+        },
+        {
+          "file": "libs/saga-toolkit/src/index.ts",
+          "hash": "11362355228061349284"
+        },
+        {
+          "file": "libs/saga-toolkit/src/saga-step.interface.ts",
+          "hash": "16855301666544820258"
+        },
+        {
+          "file": "libs/saga-toolkit/tsconfig.lib.json",
+          "hash": "10445770280697587106"
+        }
+      ],
+      "@saganova/event-contracts": [
+        {
+          "file": "libs/event-contracts/package.json",
+          "hash": "9668688907812973466"
+        },
+        {
+          "file": "libs/event-contracts/src/commands/authorize-payment.command.ts",
+          "hash": "9750286115559103901"
+        },
+        {
+          "file": "libs/event-contracts/src/commands/reserve-stock.command.ts",
+          "hash": "12989407976820009733"
+        },
+        {
+          "file": "libs/event-contracts/src/envelope.ts",
+          "hash": "15242621032272061005"
+        },
+        {
+          "file": "libs/event-contracts/src/events/inventory.events.ts",
+          "hash": "14269236156102540562"
+        },
+        {
+          "file": "libs/event-contracts/src/events/order.events.ts",
+          "hash": "1338677200171818887"
+        },
+        {
+          "file": "libs/event-contracts/src/events/payment.events.ts",
+          "hash": "2642317904595433293"
+        },
+        {
+          "file": "libs/event-contracts/src/index.ts",
+          "hash": "1268951656611804003"
+        },
+        {
+          "file": "libs/event-contracts/tsconfig.lib.json",
+          "hash": "14028369588813741130"
+        }
+      ]
+    },
+    "nonProjectFiles": [
+      {
+        "file": ".env.example",
+        "hash": "1537600584686851239"
+      },
+      {
+        "file": ".gitignore",
+        "hash": "4345533352370653638"
+      },
+      {
+        "file": "docker-compose.yml",
+        "hash": "13921556926003767411"
+      },
+      {
+        "file": "infra/docker/postgres/init-schemas.sql",
+        "hash": "13763108037687901489"
+      },
+      {
+        "file": "nx.json",
+        "hash": "8006132478369778573"
+      },
+      {
+        "file": "package.json",
+        "hash": "12404722797046445723"
+      },
+      {
+        "file": "tsconfig.base.json",
+        "hash": "1061747680431428157"
+      }
+    ]
+  }
+}

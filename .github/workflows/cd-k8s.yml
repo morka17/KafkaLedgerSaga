@@ -1,0 +1,139 @@
+name: Deploy to Kubernetes
+
+# Chained after Docker Build & Push, not after CI directly - this
+# guarantees the images `kubectl apply` is about to reference already
+# exist in the registry before any manifest pointing at them is applied.
+on:
+  workflow_run:
+    workflows: ["Docker Build & Push"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy directly to a single environment (skips staging-first flow)"
+        required: false
+        type: choice
+        options: [staging, production]
+
+permissions:
+  id-token: write # required for AWS OIDC federation - no long-lived AWS keys stored as secrets
+  contents: read
+
+jobs:
+  deploy-staging:
+    name: Deploy to staging
+    if: >
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.inputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.saganova.example
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_STAGING }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name saganova-staging --region us-east-1
+
+      - name: Apply manifests (kustomize via kubectl)
+        run: kubectl apply -k infra/k8s/overlays/staging
+
+      - name: Wait for rollout
+        run: |
+          for svc in api-gateway order-service payment-service inventory-service saga-orchestrator audit-ledger-service notification-service; do
+            kubectl rollout status deployment/$svc -n saganova --timeout=180s
+          done
+
+      - name: Run staging migrations
+        run: |
+          kubectl run migrate-staging-$(date +%s) \
+            --namespace saganova \
+            --image=ghcr.io/${{ github.repository_owner }}/saganova/migrator:latest \
+            --restart=Never \
+            --env="DB_HOST=REPLACE_WITH_STAGING_RDS_ENDPOINT" \
+            --rm --attach
+
+  # ---------------------------------------------------------------------
+  # Production requires a human. This job only starts once deploy-staging
+  # has succeeded, and then WAITS at the `environment: production` gate -
+  # configure required reviewers on that environment in repo Settings ->
+  # Environments. No approval, no deploy; there is no bypass in this file.
+  # ---------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to production
+    needs: [deploy-staging]
+    if: always() && (needs.deploy-staging.result == 'success' || github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://saganova.example
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Promote validated images to :stable
+        # Re-tags the EXACT image digest that was just deployed to and
+        # verified on staging - via `imagetools create`, not a rebuild,
+        # so what reaches production is byte-for-byte what staging ran,
+        # never a fresh build that could pick up an unrelated change.
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          for svc in api-gateway order-service payment-service inventory-service saga-orchestrator audit-ledger-service notification-service migrator; do
+            docker buildx imagetools create \
+              --tag ghcr.io/${{ github.repository_owner }}/saganova/$svc:stable \
+              ghcr.io/${{ github.repository_owner }}/saganova/$svc:sha-$SHA
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_PRODUCTION }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name saganova-production --region us-east-1
+
+      - name: Apply manifests (kustomize via kubectl)
+        run: kubectl apply -k infra/k8s/overlays/production
+
+      - name: Wait for rollout
+        run: |
+          for svc in api-gateway order-service payment-service inventory-service saga-orchestrator audit-ledger-service notification-service; do
+            kubectl rollout status deployment/$svc -n saganova --timeout=300s
+          done
+
+      - name: Run production migrations
+        run: |
+          kubectl run migrate-production-$(date +%s) \
+            --namespace saganova \
+            --image=ghcr.io/${{ github.repository_owner }}/saganova/migrator:stable \
+            --restart=Never \
+            --env="DB_HOST=REPLACE_WITH_PRODUCTION_RDS_ENDPOINT" \
+            --rm --attach
+
+      - name: Rollback on failed rollout
+        if: failure()
+        run: |
+          for svc in api-gateway order-service payment-service inventory-service saga-orchestrator audit-ledger-service notification-service; do
+            kubectl rollout undo deployment/$svc -n saganova || true
+          done

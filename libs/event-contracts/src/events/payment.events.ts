@@ -30,6 +30,9 @@ export class PaymentDeclinedPayload {
   @IsUUID()
   orderId!: string;
 
+  @IsUUID()
+  customerId?: string;
+
   @IsString()
   declineCode!: string;
 
@@ -44,6 +47,9 @@ export class PaymentRefundedPayload {
 
   @IsUUID()
   orderId!: string;
+
+  @IsUUID()
+  customerId?: string;
 
   @IsNumber()
   @IsPositive()

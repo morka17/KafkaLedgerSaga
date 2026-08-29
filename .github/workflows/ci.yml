@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR - avoids burning CI minutes
+# re-running a commit that's already been overtaken by a newer push.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Lint + unit test + build, scoped to only what changed via Nx's
+  # affected-graph - see root package.json's *:affected scripts. On a
+  # PR this compares against the PR's base ref; on main it compares
+  # against the previous commit.
+  # ---------------------------------------------------------------------
+  lint-test-build:
+    name: Lint, test, build (affected)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nx needs history to compute the affected graph
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set Nx base/head for affected commands
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "NX_BASE=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+          else
+            echo "NX_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.sha }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Lint affected projects
+        run: npx nx affected --target=lint --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Unit test affected projects
+        run: npx nx affected --target=test --base=$NX_BASE --head=$NX_HEAD --coverage
+
+      - name: Build affected projects
+        run: npx nx affected --target=build --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: "**/coverage/**"
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------
+  # Consumer-driven contract tests against the shared event/command
+  # schemas in libs/event-contracts - run on every PR regardless of
+  # which service changed, since a contract change can silently break a
+  # consumer Nx's affected-graph wouldn't necessarily flag (Nx tracks
+  # code dependencies, not "who happens to deserialize this Kafka topic").
+  # ---------------------------------------------------------------------
+  contract-tests:
+    name: Contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:contract
+
+  # ---------------------------------------------------------------------
+  # Full-stack e2e: real Kafka + Postgres via the same docker-compose.yml
+  # developers run locally, migrated with the same tools/ scripts
+  # bootstrap.sh uses, then a real checkout saga is driven end-to-end
+  # (including the compensation path) against it.
+  # ---------------------------------------------------------------------
+  e2e:
+    name: End-to-end (docker-compose)
+    runs-on: ubuntu-latest
+    needs: [lint-test-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start infrastructure
+        run: docker compose up -d
+
+      - name: Wait for Postgres
+        run: bash tools/scripts/wait-for-postgres.sh 60
+
+      - name: Wait for Kafka
+        env:
+          KAFKA_CONTAINER_NAME: saganova-kafka-1
+        run: bash tools/scripts/wait-for-kafka.sh 90
+
+      - name: Provision Kafka topics
+        env:
+          KAFKA_CONTAINER_NAME: saganova-kafka-1
+        run: bash tools/scripts/create-kafka-topics.sh
+
+      - name: Run migrations
+        run: npm run --workspace=@saganova/tools migrate:run-all
+
+      - name: Seed dev data
+        run: npm run --workspace=@saganova/tools seed
+
+      - name: Build all services
+        run: npx nx run-many --target=build --all
+
+      - name: Run e2e suite
+        env:
+          # No Stripe/SendGrid/Twilio credentials in CI - payment-service
+          # and notification-service fall back to their mock adapters,
+          # which is exactly what lets the compensation-path e2e test run
+          # without secrets. See MockStripeAdapter, MockEmailProvider.
+          NODE_ENV: test
+        run: npm run test:e2e
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes
