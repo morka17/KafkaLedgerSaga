@@ -1,0 +1,54 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: saganova
+
+resources:
+  - ../../base
+  - ../../base/local-kafka
+
+# Dev runs everything in-cluster, including Kafka/Zookeeper (see base),
+# with the placeholder Secret as-is - real credentials are never needed
+# because payment-service/notification-service fall back to their mock
+# adapters (MockStripeAdapter, MockEmailProvider, MockSmsProvider) when
+# those env vars are unset or obviously placeholder values.
+
+images:
+  - name: saganova/api-gateway
+    newTag: dev
+  - name: saganova/order-service
+    newTag: dev
+  - name: saganova/payment-service
+    newTag: dev
+  - name: saganova/inventory-service
+    newTag: dev
+  - name: saganova/saga-orchestrator
+    newTag: dev
+  - name: saganova/audit-ledger-service
+    newTag: dev
+  - name: saganova/notification-service
+    newTag: dev
+
+replicas:
+  - name: api-gateway
+    count: 1
+  - name: order-service
+    count: 1
+  - name: payment-service
+    count: 1
+  - name: inventory-service
+    count: 1
+  - name: saga-orchestrator
+    count: 1
+  - name: audit-ledger-service
+    count: 1
+  - name: notification-service
+    count: 1
+
+patches:
+  - target:
+      kind: HorizontalPodAutoscaler
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1

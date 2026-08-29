@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: saganova
+  labels:
+    app: notification-service
+    app.kubernetes.io/part-of: saganova
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: saganova/notification-service:latest # overridden per-environment - see infra/k8s/overlays/*/kustomization.yaml
+          ports:
+            - containerPort: 3006
+          envFrom:
+            - configMapRef:
+                name: saganova-common-config
+            - configMapRef:
+                name: notification-service-config
+          env:
+            - name: NOTIFICATION_SERVICE_PORT
+              value: "3006"
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: SENDGRID_API_KEY }
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: TWILIO_ACCOUNT_SID }
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: TWILIO_AUTH_TOKEN }
+            - name: TWILIO_FROM_NUMBER
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: TWILIO_FROM_NUMBER }
+          livenessProbe:
+            httpGet: { path: /health/live, port: 3006 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 3006 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }

@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: saganova
+
+resources:
+  - ../../base
+  - external-secret.yaml
+# Deliberately does NOT include ../../base/local-kafka - staging talks to
+# a real MSK cluster (infra/terraform/environments/staging), never an
+# in-cluster Kafka StatefulSet.
+
+patchesStrategicMerge:
+  - delete-placeholder-secret.yaml
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: saganova-common-config
+    patch: |
+      - op: replace
+        path: /data/KAFKA_BROKERS
+        value: "REPLACE_WITH_MSK_BOOTSTRAP_BROKERS"
+      - op: replace
+        path: /data/KAFKA_SSL
+        value: "true"
+  - target:
+      kind: HorizontalPodAutoscaler
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+
+images:
+  - name: saganova/api-gateway
+    newTag: staging
+  - name: saganova/order-service
+    newTag: staging
+  - name: saganova/payment-service
+    newTag: staging
+  - name: saganova/inventory-service
+    newTag: staging
+  - name: saganova/saga-orchestrator
+    newTag: staging
+  - name: saganova/audit-ledger-service
+    newTag: staging
+  - name: saganova/notification-service
+    newTag: staging

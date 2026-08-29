@@ -1,0 +1,56 @@
+# Declarative topic specification - the source of truth for what Kafka
+# topics this system needs and their configuration. In this repo,
+# tools/scripts/create-kafka-topics.sh applies these values for local
+# dev; in a managed environment (Confluent Cloud, MSK), a GitOps topic
+# operator or Terraform (see infra/terraform/modules/msk) would apply
+# this same spec instead.
+#
+# Partition count is the ceiling on per-topic consumer parallelism for
+# any ONE consumer group. Every message that must stay ordered relative
+# to others for the same entity (e.g. every event for one order) is
+# published with that entity's id as the partition key - see each
+# service's Kafka producer/consumer for exactly which key is used.
+#
+# replicationFactor: 1 here because local dev runs a single broker.
+# Production MUST override this - see infra/terraform/modules/msk,
+# which provisions a 3-broker cluster and expects replicationFactor: 3.
+
+topics:
+  - name: order.events
+    description: Domain events published by order-service (OrderCreated, OrderConfirmed, OrderCancelled). Keyed by orderId.
+    partitions: 6
+    replicationFactor: 1
+    retentionMs: 604800000 # 7 days
+    cleanupPolicy: delete
+
+  - name: payment.events
+    description: Domain events published by payment-service (PaymentAuthorized, PaymentDeclined, PaymentRefunded). Keyed by paymentId.
+    partitions: 6
+    replicationFactor: 1
+    retentionMs: 2592000000 # 30 days - kept longer for payment audit/compliance needs
+    cleanupPolicy: delete
+
+  - name: inventory.events
+    description: Domain events published by inventory-service (InventoryReserved, InventoryReservationFailed, InventoryReleased). Keyed by orderId.
+    partitions: 6
+    replicationFactor: 1
+    retentionMs: 604800000 # 7 days
+    cleanupPolicy: delete
+
+  - name: saga.commands
+    description: Every command that drives or steers a saga instance (CreateOrder, ReserveStock, AuthorizePayment, ReleaseInventory, RefundPayment, ConfirmOrder, CancelOrder). Keyed by orderId so one checkout's commands stay strictly ordered on one partition.
+    partitions: 6
+    replicationFactor: 1
+    retentionMs: 259200000 # 3 days - transient coordination traffic, not a long-term record
+    cleanupPolicy: delete
+
+  - name: notifications.events
+    description: Reserved for notification-service's own outbound events, if it ever needs to publish delivery-status facts (e.g. "email bounced"). Not currently produced by any service.
+    partitions: 3
+    replicationFactor: 1
+    retentionMs: 86400000 # 1 day
+    cleanupPolicy: delete
+
+productionOverrides:
+  replicationFactor: 3
+  minInSyncReplicas: 2

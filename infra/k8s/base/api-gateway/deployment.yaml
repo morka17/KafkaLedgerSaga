@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: saganova
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: saganova
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: saganova/api-gateway:latest # overridden per-environment - see infra/k8s/overlays/*/kustomization.yaml
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: saganova-common-config
+            - configMapRef:
+                name: api-gateway-config
+          env:
+            - name: API_GATEWAY_PORT
+              value: "3000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: JWT_SECRET }
+          livenessProbe:
+            httpGet: { path: /health/live, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }

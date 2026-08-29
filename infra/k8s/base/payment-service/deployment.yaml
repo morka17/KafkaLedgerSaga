@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: saganova
+  labels:
+    app: payment-service
+    app.kubernetes.io/part-of: saganova
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: saganova/payment-service:latest # overridden per-environment - see infra/k8s/overlays/*/kustomization.yaml
+          ports:
+            - containerPort: 3002
+          envFrom:
+            - configMapRef:
+                name: saganova-common-config
+            - configMapRef:
+                name: payment-service-config
+          env:
+            - name: PAYMENT_SERVICE_PORT
+              value: "3002"
+            - name: DB_HOST
+              value: "postgres"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "saganova"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: DB_PASSWORD }
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: saganova-secrets, key: STRIPE_SECRET_KEY }
+          livenessProbe:
+            httpGet: { path: /health/live, port: 3002 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 3002 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }

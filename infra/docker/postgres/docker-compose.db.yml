@@ -1,0 +1,25 @@
+# Standalone Postgres for local dev/CI, usable independently of the Kafka
+# stack. Applies the same schema-per-service bootstrap (init-schemas.sql)
+# the root docker-compose.yml uses.
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: saganova
+      POSTGRES_PASSWORD: saganova
+      POSTGRES_DB: saganova
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saganova"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

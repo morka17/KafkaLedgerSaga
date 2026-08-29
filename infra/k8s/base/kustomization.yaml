@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: saganova
+
+resources:
+  - namespace.yaml
+  - common-config.yaml
+  - common-secrets.yaml
+  - api-gateway
+  - order-service
+  - payment-service
+  - inventory-service
+  - saga-orchestrator
+  - audit-ledger-service
+  - notification-service
+
+commonLabels:
+  app.kubernetes.io/part-of: saganova
+  app.kubernetes.io/managed-by: kustomize

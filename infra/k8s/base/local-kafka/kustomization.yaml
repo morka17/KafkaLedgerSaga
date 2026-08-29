@@ -1,0 +1,8 @@
+# Groups the in-cluster Kafka/Zookeeper StatefulSets as an OPTIONAL
+# add-on to the base, rather than a permanent fixture of it. Only the
+# dev overlay includes this - staging and production point
+# KAFKA_BROKERS at a real managed MSK cluster instead (see
+# infra/terraform/modules/msk) and never run Kafka inside Kubernetes at all.
+resources:
+  - zookeeper.yaml
+  - kafka.yaml

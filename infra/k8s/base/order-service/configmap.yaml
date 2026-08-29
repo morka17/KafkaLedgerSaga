@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: saganova
+data:
+  # Service-specific, non-secret config. Cross-cutting values (KAFKA_BROKERS,
+  # OTEL endpoint, log level) live in the shared saganova-common-config
+  # ConfigMap instead - see base/common-config.yaml.
+  NODE_ENV: "production"

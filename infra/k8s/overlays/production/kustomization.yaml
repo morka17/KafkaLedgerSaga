@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: saganova
+
+resources:
+  - ../../base
+  - external-secret.yaml
+# No local-kafka component here either - production is the environment
+# this whole separation exists for for. See infra/terraform/modules/msk
+# for the 3-broker, multi-AZ MSK cluster this points at.
+
+patchesStrategicMerge:
+  - delete-placeholder-secret.yaml
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: saganova-common-config
+    patch: |
+      - op: replace
+        path: /data/KAFKA_BROKERS
+        value: "REPLACE_WITH_MSK_BOOTSTRAP_BROKERS"
+      - op: replace
+        path: /data/KAFKA_SSL
+        value: "true"
+      - op: replace
+        path: /data/LOG_LEVEL
+        value: "warn"
+  # Production runs every service's HPA at its base-defined min/max as-is
+  # (see the generator in infra/k8s/base/*/hpa.yaml) - no override needed
+  # here, unlike dev (scaled down) and staging (scaled to a middle ground).
+  - target:
+      kind: Deployment
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+
+images:
+  - name: saganova/api-gateway
+    newTag: stable
+  - name: saganova/order-service
+    newTag: stable
+  - name: saganova/payment-service
+    newTag: stable
+  - name: saganova/inventory-service
+    newTag: stable
+  - name: saganova/saga-orchestrator
+    newTag: stable
+  - name: saganova/audit-ledger-service
+    newTag: stable
+  - name: saganova/notification-service
+    newTag: stable

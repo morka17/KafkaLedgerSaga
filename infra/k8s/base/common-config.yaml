@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saganova-common-config
+  namespace: saganova
+data:
+  # Cross-cutting, non-secret values every service reads identically.
+  # Per-service overrides (port, NODE_ENV) live in each service's own
+  # <name>-config ConfigMap instead.
+  KAFKA_BROKERS: "kafka:29092"
+  KAFKA_SSL: "false"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4318/v1/traces"
+  LOG_LEVEL: "info"
